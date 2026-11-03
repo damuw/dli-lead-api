@@ -1,0 +1,17 @@
+{
+  "name": "dli-lead-api",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "DLI lead capture API. Receives deployment leads and research-PDF email requests, then forwards notifications to the DLI team mailbox.",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "nodemailer": "^6.10.0"
+  }
+}
