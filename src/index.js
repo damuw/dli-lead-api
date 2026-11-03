@@ -37,7 +37,12 @@ const transporter = nodemailer.createTransport({
   port: SMTP_PORT,
   secure: SMTP_PORT === 465,
   auth: SMTP_USER ? { user: SMTP_USER, pass: SMTP_PASS } : undefined,
+  connectionTimeout: 10000,
+  greetingTimeout: 10000,
+  socketTimeout: 20000,
 });
+
+const DIAG_KEY = process.env.DIAG_KEY || "";
 
 const WINDOW_MS = 15 * 60 * 1000;
 const MAX_HITS = 20;
@@ -84,7 +89,20 @@ const escapeHtml = (value) =>
 const validEmail = (value) => typeof value === "string" && value.length <= 254 && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value);
 
 app.get("/api/health", (_req, res) => {
-  res.json({ ok: true });
+  res.json({ ok: true, mail: { configured: !!(SMTP_HOST && SMTP_USER && SMTP_PASS), port: SMTP_PORT } });
+});
+
+// Protected SMTP diagnostic: /api/mail-check?key=... runs a real verify().
+app.get("/api/mail-check", async (req, res) => {
+  if (!DIAG_KEY || req.query.key !== DIAG_KEY) return res.status(404).json({ ok: false });
+  const started = Date.now();
+  try {
+    await transporter.verify();
+    return res.json({ ok: true, ms: Date.now() - started, host: SMTP_HOST, port: SMTP_PORT });
+  } catch (error) {
+    const code = error && (error.code || error.responseCode || error.command) || "unknown";
+    return res.status(502).json({ ok: false, ms: Date.now() - started, code: String(code), message: String(error && error.message || error).slice(0, 200) });
+  }
 });
 
 const handleLead = async (req, res) => {
