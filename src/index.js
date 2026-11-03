@@ -1,8 +1,6 @@
 import express from "express";
 import cors from "cors";
 import nodemailer from "nodemailer";
-import fs from "node:fs";
-import path from "node:path";
 
 const app = express();
 app.disable("x-powered-by");
@@ -23,7 +21,7 @@ const MAIL_FROM = process.env.MAIL_FROM || "Deep Learning Intelligence <no-reply
 const SMTP_TLS_SERVERNAME = process.env.SMTP_TLS_SERVERNAME || (SMTP_HOST && !/^[0-9.]+$/.test(SMTP_HOST) ? SMTP_HOST : "");
 const SMTP_TLS_REJECT_UNAUTHORIZED = process.env.SMTP_TLS_REJECT_UNAUTHORIZED !== "false";
 const LEAD_TO = process.env.LEAD_TO || "damu@DeepLearningIntelligence.com";
-const RESOURCE_DIR = path.resolve(process.cwd(), "resources");
+const SITE_URL = (process.env.PUBLIC_SITE_URL || "https://deeplearningintelligence.com").replace(/\/+$/, "");
 
 const RESOURCE_FILES = {
   "the-power-of-innovation-in-recession": "The-Power-of-Innovation-in-Recession.pdf",
@@ -132,20 +130,9 @@ const handleLead = async (req, res) => {
   const timeline = text(payload.timeline, 60);
   const problem = text(payload.problem, 5000);
   const resourceSlug = typeof payload.resource === "string" && Object.hasOwn(RESOURCE_FILES, payload.resource) ? payload.resource : "";
-  const attachmentName = resourceSlug ? RESOURCE_FILES[resourceSlug] : "";
-
-  let attachmentPath = "";
-  if (attachmentName) {
-    const resolved = path.resolve(RESOURCE_DIR, attachmentName);
-    if (resolved === RESOURCE_DIR || !resolved.startsWith(RESOURCE_DIR + path.sep)) {
-      return res.status(400).json({ ok: false, error: "invalid_resource" });
-    }
-    attachmentPath = fs.existsSync(resolved) ? resolved : "";
-    if (!attachmentPath) {
-      console.error(`Requested resource is missing on disk: ${attachmentName}`);
-      return res.status(422).json({ ok: false, error: "resource_unavailable" });
-    }
-  }
+  const resourceFile = resourceSlug ? RESOURCE_FILES[resourceSlug] : "";
+  const resourceLabel = resourceFile.replace(/\.pdf$/i, "").replace(/-/g, " ");
+  const resourceUrl = resourceFile ? `${SITE_URL}/resources/${encodeURIComponent(resourceFile)}` : "";
 
   const leadText = [
     "DLI — NEW LEAD",
@@ -158,12 +145,13 @@ const handleLead = async (req, res) => {
     `What do you need?: ${need || "Not specified"}`,
     `Timeline: ${timeline || "Not specified"}`,
     `Resource requested: ${resourceSlug || "None"}`,
+    resourceUrl ? `Download link: ${resourceUrl}` : "",
     "",
     "PROBLEM TO SOLVE",
     problem || "Not provided",
   ].join("\n");
 
-  const subject = resourceSlug ? `DLI resource request: ${attachmentName}` : "New DLI deployment lead";
+  const subject = resourceSlug ? `DLI resource request: ${resourceFile}` : "New DLI deployment lead";
 
   await transporter.sendMail({
     from: MAIL_FROM,
@@ -171,28 +159,34 @@ const handleLead = async (req, res) => {
     replyTo: email,
     subject,
     text: leadText,
-    html: `<p>A new DLI lead was captured on the website.</p><pre style="white-space:pre-wrap">${escapeHtml(leadText)}</pre>`,
-    attachments: attachmentPath ? [{ filename: attachmentName, path: attachmentPath }] : [],
+    html: `<p>A new DLI lead was captured on the website.</p><pre style="white-space:pre-wrap">${escapeHtml(leadText)}</pre>${resourceUrl ? `<p><a href="${resourceUrl}">Open the requested PDF</a></p>` : ""}`,
   });
 
-  // Deliver the requested briefing to the visitor as well.
-  if (attachmentPath) {
+  // Deliver the requested briefing to the visitor as a download link (no attachment).
+  if (resourceUrl) {
     await transporter.sendMail({
       from: MAIL_FROM,
       to: email,
       replyTo: LEAD_TO,
-      subject: `Your DLI briefing: ${attachmentName.replace(/\.pdf$/i, "").replace(/-/g, " ")}`,
+      subject: `Your DLI briefing: ${resourceLabel}`,
       text: [
         "Hello,",
         "",
-        "Thank you for your interest in Deep Learning Intelligence. The briefing you requested is attached.",
+        "Thank you for your interest in Deep Learning Intelligence.",
+        "",
+        `Download your copy of “${resourceLabel}”: ${resourceUrl}`,
         "",
         "If you would like to discuss how this applies to your organization, reply to this email and a senior engineer will follow up.",
         "",
         "— Deep Learning Intelligence",
         "Intelligence. Deployed.",
       ].join("\n"),
-      attachments: [{ filename: attachmentName, path: attachmentPath }],
+      html: `<p>Hello,</p>
+<p>Thank you for your interest in Deep Learning Intelligence.</p>
+<p><a href="${resourceUrl}" style="display:inline-block;padding:12px 18px;background:#0a1424;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:600">Download “${escapeHtml(resourceLabel)}” (PDF)</a></p>
+<p style="color:#5b6b7f;font-size:13px">If the button does not work, copy this link:<br>${resourceUrl}</p>
+<p>If you would like to discuss how this applies to your organization, reply to this email and a senior engineer will follow up.</p>
+<p>— Deep Learning Intelligence<br><em>Intelligence. Deployed.</em></p>`,
     });
   }
 

@@ -6,7 +6,6 @@ COPY package*.json ./
 RUN npm ci --omit=dev
 
 COPY src ./src
-COPY resources ./resources
 
 EXPOSE 3000
 

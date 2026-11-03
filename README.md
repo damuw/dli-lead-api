@@ -1,8 +1,8 @@
 # DLI Lead API
 
-Express service that receives DLI website leads and research-PDF email requests,
-then forwards them by email using the existing company SMTP server (no email server
-change required).
+Express service that receives DLI website leads and research-PDF requests, then
+forwards them by email using the existing company SMTP server (no email server
+change required). PDFs are delivered as **download links**, not attachments.
 
 ## Endpoints
 
@@ -33,9 +33,8 @@ change required).
 
 Build: `docker build -t dli-lead-api .`
 
-The container expects the two briefing PDFs at `/app/resources/`:
-- `The-Power-of-Innovation-in-Recession.pdf`
-- `Jobs-of-the-Future.pdf`
+PDFs are served by the marketing site from `https://deeplearningintelligence.com/resources/`.
+Set `PUBLIC_SITE_URL` if the site origin changes.
 
 Coolify notes: set the service env vars, expose port 3000, and add the domain
 (e.g. `api.deeplearningintelligence.com`) in Coolify → the marketing site should
