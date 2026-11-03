@@ -20,6 +20,8 @@ const SMTP_PORT = Number(process.env.SMTP_PORT || 587) || 587;
 const SMTP_USER = process.env.SMTP_USER || "";
 const SMTP_PASS = process.env.SMTP_PASS || "";
 const MAIL_FROM = process.env.MAIL_FROM || "Deep Learning Intelligence <no-reply@deeplearningintelligence.com>";
+const SMTP_TLS_SERVERNAME = process.env.SMTP_TLS_SERVERNAME || (SMTP_HOST && !/^[0-9.]+$/.test(SMTP_HOST) ? SMTP_HOST : "");
+const SMTP_TLS_REJECT_UNAUTHORIZED = process.env.SMTP_TLS_REJECT_UNAUTHORIZED !== "false";
 const LEAD_TO = process.env.LEAD_TO || "damu@DeepLearningIntelligence.com";
 const RESOURCE_DIR = path.resolve(process.cwd(), "resources");
 
@@ -40,6 +42,10 @@ const transporter = nodemailer.createTransport({
   connectionTimeout: 10000,
   greetingTimeout: 10000,
   socketTimeout: 20000,
+  tls: {
+    servername: SMTP_TLS_SERVERNAME || undefined,
+    rejectUnauthorized: SMTP_TLS_REJECT_UNAUTHORIZED,
+  },
 });
 
 const DIAG_KEY = process.env.DIAG_KEY || "";
