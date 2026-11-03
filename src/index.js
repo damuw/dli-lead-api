@@ -101,7 +101,7 @@ app.get("/api/mail-check", async (req, res) => {
     return res.json({ ok: true, ms: Date.now() - started, host: SMTP_HOST, port: SMTP_PORT });
   } catch (error) {
     const code = error && (error.code || error.responseCode || error.command) || "unknown";
-    return res.status(502).json({ ok: false, ms: Date.now() - started, code: String(code), message: String(error && error.message || error).slice(0, 200) });
+    return res.status(502).json({ ok: false, ms: Date.now() - started, host: SMTP_HOST, port: SMTP_PORT, code: String(code), message: String(error && error.message || error).slice(0, 200) });
   }
 });
 
