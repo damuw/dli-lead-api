@@ -17,10 +17,32 @@ change required). PDFs are delivered as **download links**, not attachments.
     "need": "AI agent or workflow",
     "timeline": "Within 30 days",
     "problem": "We need support triage automation.",
-    "resource": "jobs-of-the-future"
+    "resource": "jobs-of-the-future",
+    "consent": true,
+    "consentAt": "2026-11-05T10:00:00.000Z",
+    "source": "homepage-brief"
   }
   ```
   `resource` is optional (`the-power-of-innovation-in-recession` | `jobs-of-the-future`).
+  `consent` / `consentAt` / `source` are optional metadata added in November 2026.
+
+  Readiness requests add an optional, bounded `assessment` object:
+  ```json
+  {
+    "segment": "government",
+    "profile": "Forming",
+    "average": 1.75,
+    "dimensions": [{ "label": "Mandate & ownership", "value": 2 }],
+    "gaps": [{ "title": "Classify data before connecting it", "severity": "High" }],
+    "answers": { "Mandate & ownership": "A named service owner with an executive sponsor" },
+    "consent": true,
+    "consentAt": "2026-11-05T10:00:00.000Z",
+    "source": "homepage-readiness"
+  }
+  ```
+  The API truncates and bounds every field (8 dimensions, 5 gaps, 10 answers, 200 chars
+  each), then appends a `READINESS ASSESSMENT` block to the notification email. It does not
+  store the data; delivery is email only.
 
 ## Env vars
 

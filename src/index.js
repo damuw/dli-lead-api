@@ -92,6 +92,34 @@ const escapeHtml = (value) =>
 
 const validEmail = (value) => typeof value === "string" && value.length <= 254 && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value);
 
+// Structured readiness profile from the on-site assessment. Optional and
+// deliberately bounded: no free-form system details, credentials or files.
+const normalizeAssessment = (value) => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const segment = text(value.segment, 40);
+  if (!segment) return null;
+  const dimensions = Array.isArray(value.dimensions)
+    ? value.dimensions.slice(0, 8).map((d) => ({ label: text(d && d.label, 60), value: Math.max(0, Math.min(3, Number(d && d.value) || 0)) })).filter((d) => d.label)
+    : [];
+  const gaps = Array.isArray(value.gaps)
+    ? value.gaps.slice(0, 5).map((g) => ({ title: text(g && g.title, 140), severity: text(g && g.severity, 20) })).filter((g) => g.title)
+    : [];
+  const answers = value.answers && typeof value.answers === "object" && !Array.isArray(value.answers)
+    ? Object.entries(value.answers).slice(0, 10).map(([k, v]) => [text(k, 60), text(v, 200)]).filter(([k, v]) => k && v)
+    : [];
+  return {
+    segment,
+    profile: text(value.profile, 40),
+    average: Math.max(0, Math.min(3, Number(value.average) || 0)),
+    dimensions,
+    gaps,
+    answers,
+    consent: value.consent === true,
+    consentAt: text(value.consentAt, 40),
+    source: text(value.source, 60)
+  };
+};
+
 app.get("/api/health", (_req, res) => {
   res.json({ ok: true, mail: { configured: !!(SMTP_HOST && SMTP_USER && SMTP_PASS), port: SMTP_PORT } });
 });
@@ -133,6 +161,10 @@ const handleLead = async (req, res) => {
   const resourceFile = resourceSlug ? RESOURCE_FILES[resourceSlug] : "";
   const resourceLabel = resourceFile.replace(/\.pdf$/i, "").replace(/-/g, " ");
   const resourceUrl = resourceFile ? `${SITE_URL}/resources/${encodeURIComponent(resourceFile)}` : "";
+  const assessment = normalizeAssessment(payload.assessment);
+  const consent = payload.consent === true;
+  const consentAt = text(payload.consentAt, 40);
+  const source = text(payload.source, 60);
 
   const leadText = [
     "DLI — NEW LEAD",
@@ -145,13 +177,27 @@ const handleLead = async (req, res) => {
     `What do you need?: ${need || "Not specified"}`,
     `Timeline: ${timeline || "Not specified"}`,
     `Resource requested: ${resourceSlug || "None"}`,
+    `Source: ${source || "not specified"}`,
+    `Consent to contact: ${consent ? "yes" : "not captured"}${consentAt ? ` (${consentAt})` : ""}`,
     resourceUrl ? `Download link: ${resourceUrl}` : "",
     "",
     "PROBLEM TO SOLVE",
     problem || "Not provided",
+    ...(assessment ? [
+      "",
+      "READINESS ASSESSMENT",
+      `Segment: ${assessment.segment}`,
+      `Indicative profile: ${assessment.profile || "Not provided"} (average ${assessment.average.toFixed(2)} / 3)`,
+      `Dimensions: ${assessment.dimensions.map((d) => `${d.label} ${d.value}/3`).join("; ") || "Not provided"}`,
+      `Priority gaps: ${assessment.gaps.map((g) => `${g.title} [${g.severity}]`).join("; ") || "None returned"}`,
+      `Answers: ${assessment.answers.map(([k, v]) => `${k}: ${v}`).join(" | ") || "Not provided"}`,
+      `Assessment consent: ${assessment.consent ? "yes" : "no"}${assessment.consentAt ? ` (${assessment.consentAt})` : ""}`
+    ] : [])
   ].join("\n");
 
-  const subject = resourceSlug ? `DLI resource request: ${resourceFile}` : "New DLI deployment lead";
+  const subject = assessment
+    ? `DLI readiness review: ${assessment.segment}${assessment.profile ? ` (${assessment.profile})` : ""}`
+    : (resourceSlug ? `DLI resource request: ${resourceFile}` : "New DLI deployment lead");
 
   await transporter.sendMail({
     from: MAIL_FROM,
